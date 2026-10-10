@@ -1,0 +1,21 @@
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: tarunkatariaonline/ai-githubcodereviewer@main
+        with:
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
