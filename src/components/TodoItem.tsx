@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react'
+import { useRef, useState, type KeyboardEvent } from 'react'
 import type { Todo } from '../types.ts'
 
 interface Props {
@@ -11,9 +11,18 @@ interface Props {
 export function TodoItem({ todo, onToggle, onEdit, onDelete }: Props) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(todo.text)
+  // Some browsers fire blur when the focused input unmounts; this stops that
+  // blur from re-saving after Enter or saving a draft the user cancelled.
+  const skipBlurRef = useRef(false)
 
-  const commit = () => {
-    if (draft.trim()) {
+  const startEditing = () => {
+    skipBlurRef.current = false
+    setDraft(todo.text)
+    setEditing(true)
+  }
+
+  const finishEditing = (save: boolean) => {
+    if (save && draft.trim()) {
       onEdit(todo.id, draft)
     } else {
       setDraft(todo.text)
@@ -21,11 +30,15 @@ export function TodoItem({ todo, onToggle, onEdit, onDelete }: Props) {
     setEditing(false)
   }
 
+  const handleBlur = () => {
+    if (skipBlurRef.current) return
+    finishEditing(true)
+  }
+
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') commit()
-    if (e.key === 'Escape') {
-      setDraft(todo.text)
-      setEditing(false)
+    if (e.key === 'Enter' || e.key === 'Escape') {
+      skipBlurRef.current = true
+      finishEditing(e.key === 'Enter')
     }
   }
 
@@ -42,7 +55,7 @@ export function TodoItem({ todo, onToggle, onEdit, onDelete }: Props) {
           className="edit"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
+          onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           aria-label="Edit todo"
           autoFocus
@@ -50,10 +63,7 @@ export function TodoItem({ todo, onToggle, onEdit, onDelete }: Props) {
       ) : (
         <span
           className="text"
-          onDoubleClick={() => {
-            setDraft(todo.text)
-            setEditing(true)
-          }}
+          onDoubleClick={startEditing}
           title="Double-click to edit"
         >
           {todo.text}
